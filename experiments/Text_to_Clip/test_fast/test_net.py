@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
 
     parsed_iter=args.Retrieval_caffemodel.split('.')[-2].split('_')[-1]
-    sim_pickle_path = './experiments/Text_to_Clip/test_fast/sim_pickle/sim_iter_'+parsed_iter+'.p'
+    sim_pickle_path = './experiments/Text_to_Clip/test_fast/sim_iter_'+parsed_iter+'.p'
 
     test_net(net, imdb, FcEmbed_net, WordEmbed_net, sim_pickle_path, vocabulary, max_per_image=args.max_per_image, thresh=0.005, vis=args.vis)
 
