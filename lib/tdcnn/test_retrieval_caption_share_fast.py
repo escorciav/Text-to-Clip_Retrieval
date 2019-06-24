@@ -31,7 +31,7 @@ def cos(v1, v2):
 
 
 ### euclidean distance option 1
-def dist(x,y):   
+def dist(x,y):
     return np.sqrt(np.sum((x-y)**2))
 
 
@@ -67,7 +67,7 @@ def generate_sentence(net, fc6, temp=float('inf'), output='predict', max_words=5
     word_input = np.array([0])
     sentence = []
     while len(sentence) < max_words and (not sentence or sentence[-1] != 0):
-        net.forward(cont_sentence=cont_input, input_sentence=word_input, caption_fc6=fc6.reshape(1,fc6.shape[0])) 
+        net.forward(cont_sentence=cont_input, input_sentence=word_input, caption_fc6=fc6.reshape(1,fc6.shape[0]))
         output_preds = net.blobs[output].data[0, 0, :]
         sentence.append(random_choice_from_probs(output_preds, temp=temp))
         cont_input[0] = 1
@@ -112,13 +112,15 @@ def _get_video_blob(roidb,vocab):
     if cfg.INPUT == 'video':
       for video_info in item['frames']:
         prefix = item['fg_name'] if video_info[0] else item['bg_name']
+        # TODO: modification below. Ask how to do this in the proper way
+        prefix = os.path.join(*prefix.split(os.path.sep)[1:None])
         for idx in xrange(video_info[1], video_info[2], video_info[3]):
-          frame = cv2.imread('%s/image_%s.jpg'%(prefix,str(idx+1).zfill(5)))  
+          frame = cv2.imread('%s/%s.jpg'%(prefix,str(idx+1).zfill(6)))
           frame = prep_im_for_blob(frame, cfg.PIXEL_MEANS, tuple(cfg.TRAIN.FRAME_SIZE[::-1]),
-                                   cfg.TRAIN.CROP_SIZE, random_idx)   
+                                   cfg.TRAIN.CROP_SIZE, random_idx)
 
           if item['flipped']:
-              frame = frame[:, ::-1, :]  
+              frame = frame[:, ::-1, :]
 
           video[j] = frame
           j = j + 1
@@ -127,7 +129,7 @@ def _get_video_blob(roidb,vocab):
       for video_info in item['frames']:
         prefix = item['fg_name'] if video_info[0] else item['bg_name']
         for idx in xrange(video_info[1], video_info[2]):
-          frame = cv2.imread('%s/image_%s.jpg'%(prefix,str(idx+1).zfill(5)))  
+          frame = cv2.imread('%s/image_%s.jpg'%(prefix,str(idx+1).zfill(5)))
           frame = prep_im_for_blob(frame, cfg.PIXEL_MEANS, tuple(cfg.TEST.FRAME_SIZE[::-1]),
                                    cfg.TEST.CROP_SIZE, random_idx)
 
@@ -262,12 +264,12 @@ def apply_nms(all_wins, thresh):
             nms_wins[cls_ind][im_ind] = dets[keep, :].copy()
     return nms_wins
 
-def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_per_image=100, thresh=0.05, vis=False):  
+def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_per_image=100, thresh=0.05, vis=False):
     num_videos = len(roidb)
 
     # timers
     _t = {'im_detect' : Timer(), 'misc' : Timer()}
-    
+
     res = {}
 
     for i in xrange(num_videos):
@@ -285,12 +287,12 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
         video = _get_video_blob(roidb[i], vocab)
 
         _t['im_detect'].tic()
-        wins, fc6, proposal_scores= video_detect(net, video, box_proposals)  
+        wins, fc6, proposal_scores= video_detect(net, video, box_proposals)
         _t['im_detect'].toc()
 
         _t['misc'].tic()
 
-        query = roidb[i]['input_sentence']  
+        query = roidb[i]['input_sentence']
         batch = 32
         num_batch = (query.shape[0] - 1) / batch + 1
 
@@ -303,7 +305,7 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
             score = extract_retrieval_score(retrieval_net, lstm_last_state)
             sim[b*batch:(b+1)*batch,d] = score.squeeze()
 
-        print sim.max()    
+        print sim.max()
 
 
         vid = roidb[i]['vid']
@@ -324,7 +326,7 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
             res[vid] = []
         res[vid].append(tmp)
 
-        
+
         _t['misc'].toc()
 
         print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s' \

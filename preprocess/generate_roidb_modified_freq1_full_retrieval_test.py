@@ -18,9 +18,9 @@ from util_2 import *
 FPS = 25.0
 LENGTH = 768
 min_length = 0 # frame num (filter out)
-overlap_thresh = 0.7 
+overlap_thresh = 0.7
 STEP = LENGTH / 4
-WINS = [LENGTH * 5] 
+WINS = [LENGTH * 5]
 max_words = 10
 
 vocab_out_path = './vocabulary.txt'
@@ -38,11 +38,11 @@ for vid in train_data.keys():
 print '\nthe total number of captions are:',len(train_caption)
 
 #init-vocabulary
-vocab,vocab_inverted = init_vocabulary(train_caption, min_count=1)  
+vocab,vocab_inverted = init_vocabulary(train_caption, min_count=1)
 dump_vocabulary(vocab_inverted, vocab_out_path)
 
 
-path = '........./preprocess'
+path = '../preprocess'
 print('Generate Training Segments')
 train_segment = generate_segment(path, 'frames',train_data,vocab,max_words)
 
@@ -130,7 +130,7 @@ def generate_roidb(split, segment):
               roidb.append(tmp)
           for d in rois:
             debug.append(d)
-              
+
         # Backward Direction
         for end in xrange(length, win-1, - step):
           start = end - win

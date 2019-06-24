@@ -29,8 +29,8 @@ time python ./${EX_PATH}/${EX_DIR}/test_fast/test_net.py --gpu ${GPU_ID} \
   --def ./${EX_PATH}/${EX_DIR}/test_fast/test_rpn.prototxt \
   --def-lstm ./${EX_PATH}/${EX_DIR}/test_fast/test_lstm.prototxt \
   --def-retrieval ./${EX_PATH}/${EX_DIR}/test_fast/test_retrieval.prototxt \
-  --net ...../train_rpn/snapshot/activitynet_iter_30000.caffemodel \
-  --netRetrieval ./${EX_PATH}/${EX_DIR}/snapshot/lstm_lm_iter_${i}000.caffemodel \
+  --net ./${EX_PATH}/snapshot/activitynet_iter_30000.caffemodel \
+  --netRetrieval ./${EX_PATH}/snapshot/lstm_lm_iter_${i}000.caffemodel \
   --cfg ./${EX_PATH}/${EX_DIR}/test_fast/td_cnn_end2end.yml \
   ${EXTRA_ARGS} \
   2>&1 | tee $LOG

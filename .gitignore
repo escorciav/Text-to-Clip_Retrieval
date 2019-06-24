@@ -1,0 +1,5 @@
+caffe3d/.build_release
+caffe3d/build
+caffe3d/python/caffe/_caffe.so
+caffe3d/python/caffe/proto
+*.pyc

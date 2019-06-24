@@ -102,9 +102,9 @@ if __name__ == '__main__':
     WordEmbed_net = caffe.Net(args.retrieval_prototxt, args.Retrieval_caffemodel, caffe.TEST)
     net.name = os.path.splitext(os.path.basename(args.caffemodel))[0]
 
-    path = './experiments/preprocess/'
+    path = './preprocess/'
     imdb = get_test_roidb(path)
-    
+
     vocabulary = ['<EOS>'] + [line.strip() for line in open(path+'vocabulary.txt').readlines()]
     print len(vocabulary)
 
