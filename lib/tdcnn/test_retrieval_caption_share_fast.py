@@ -265,14 +265,96 @@ def apply_nms(all_wins, thresh):
     return nms_wins
 
 def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_per_image=100, thresh=0.05, vis=False):
+    # TODO: Victor's project
+    # Load MEE output and mapping
     num_videos = len(roidb)
 
     # timers
-    _t = {'im_detect' : Timer(), 'misc' : Timer()}
+    _t = {'im_detect' : Timer(), 'misc' : Timer(), 'query': Timer()}
 
     res = {}
 
+    # Victor's project
+    # Create a map video_id -> index
+    video2ind = {value['vid']: i for i, value in enumerate(roidb)}
+    MAX_PROPOSALS = 100
+    MAX_VIDEOS = 6
+
     for i in xrange(num_videos):
+        # Victor's project
+        # For each query in a given video, search over candidates videos
+        # retrieved by "MEE" forming the pool of proposals, score wrt to query
+        # and confidence of each proposal
+        v_i = roidb[i]['vid']
+        queries = roidb[i]['input_sentence']
+        for j in xrange(len(queries)):
+            _t['query'].tic()
+            q = queries[[j], :]
+            scores = np.zeros(MAX_PROPOSALS * MAX_VIDEOS)
+            proposals = np.zeros((MAX_PROPOSALS * MAX_VIDEOS, 2))
+            proposal_conf = np.zeros(MAX_PROPOSALS * MAX_VIDEOS)
+
+            # Grab MEE results and loop over top-k videos
+            # TODO: Victor's project
+            # Replace this with MEE results
+            ind_mee = np.random.choice(num_videos, MAX_VIDEOS, False)
+            for k, v_j in enumerate(ind_mee):
+                # filter out any ground truth wins
+                if cfg.TEST.HAS_RPN:
+                    box_proposals = None
+                else:
+                    # The roidb may contain ground-truth rois (for example, if the roidb
+                    # comes from the training or val split). We only want to evaluate
+                    # detection on the *non*-ground-truth rois. We select those the rois
+                    # that have the gt_classes field set to 0, which means there's no
+                    # ground truth.
+                    box_proposals = roidb[v_j]['wins'][roidb[v_j]['gt_classes'] == 0]
+                    raise ValueError('Unexpected')
+
+                video = _get_video_blob(roidb[v_j], vocab)
+
+                _t['im_detect'].tic()
+                wins, fc6, proposal_scores = video_detect(net, video, box_proposals)
+                _t['im_detect'].toc()
+
+                assert wins.shape[0] == MAX_PROPOSALS
+                _t['misc'].tic()
+                # Loop over all proposals in given video
+                sim = np.zeros(wins.shape[0])
+                for d in xrange(wins.shape[0]):
+                    fc6_temp = fc6[d,:]
+                    lstm_last_state = lstm_last_hidden_state(lstm_net, fc6_temp, q, output='lstm2')
+                    score = extract_retrieval_score(retrieval_net, lstm_last_state)
+                    sim[d] = score.squeeze()
+                scores[k*MAX_PROPOSALS:(k+1)*MAX_PROPOSALS] = sim[d]
+
+                stride = roidb[v_j]['stride']
+                start_frame = roidb[v_j]['start_frame']
+                end_frame = roidb[v_j]['end_frame']
+                FPS = roidb[v_j]['FPS']
+
+                left_frame = np.maximum(wins[:,1]*stride + start_frame, start_frame)/FPS
+                right_frame = np.minimum(wins[:,2]*stride + start_frame, end_frame)/FPS
+                proposals[k*MAX_PROPOSALS:(k+1)*MAX_PROPOSALS, 0] = left_frame
+                proposals[k*MAX_PROPOSALS:(k+1)*MAX_PROPOSALS, 1] = right_frame
+                proposal_conf[k*MAX_PROPOSALS:(k+1)*MAX_PROPOSALS] = proposal_scores
+                _t['misc'].toc()
+
+            query_j = roidb[i]['raw_sentences'][j]
+            res[(v_i, query_j)] = {
+                'proposals': proposals,
+                'proposal_conf': proposal_conf,
+                'scores': scores
+            }
+            _t['query'].toc()
+            print 'video: {:d}/{:d} {:.3f}s {:.3f}s {:.3f}s' \
+                .format(i + 1, num_videos, _t['im_detect'].average_time,
+                        _t['misc'].average_time, _t['query'].average_time)
+
+        continue
+
+        ######################################################################
+
         # filter out any ground truth wins
         if cfg.TEST.HAS_RPN:
             box_proposals = None

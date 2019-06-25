@@ -55,7 +55,7 @@ test_segment = generate_segment(path,'frames',test_data,vocab,max_words)
 
 
 
-def generate_roi(rois, rois_lstm, video, start, end, stride, split):
+def generate_roi(rois, rois_lstm, video, start, end, stride, split, raw_sentences):
   tmp = {}
   tmp['wins'] = ( rois[:,:2] - start ) / stride
   tmp['durations'] = tmp['wins'][:,1] - tmp['wins'][:,0]+1
@@ -76,6 +76,9 @@ def generate_roi(rois, rois_lstm, video, start, end, stride, split):
   tmp['fg_name'] = path + '/'+split+'/' + video
   if not os.path.isfile(tmp['bg_name'] + '/image_' + str(end-1).zfill(5) + '.jpg'):
     print  tmp['bg_name'] + '/image_' + str(end-1).zfill(5) + '.jpg'
+
+  # Victor's project
+  tmp['raw_sentences'] = raw_sentences
   return tmp
 
 
@@ -95,9 +98,12 @@ def generate_roidb(split, segment):
       seg_tmp = segment[vid]
       db=[]
       db_lstm = []
+      # Victor's project
+      raw_sentences = []
       for s in seg_tmp:
         db.append([s[0],s[1]])
         db_lstm.append([s[2],s[3],s[4]])
+        raw_sentences.append(s[-1])
       db = np.array(db)
       db_lstm = np.array(db_lstm)
       db = db * FPS
@@ -116,7 +122,7 @@ def generate_roidb(split, segment):
           end = min(start + win, length)
           assert end <= length
           # Add data
-          tmp = generate_roi(rois, rois_lstm, vid, start, end, stride, split)
+          tmp = generate_roi(rois, rois_lstm, vid, start, end, stride, split, raw_sentences)
           if tmp['end_frame']==0:
             print tmp['vid']
           else:

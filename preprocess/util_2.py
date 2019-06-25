@@ -22,7 +22,7 @@ def split_sentence(sentence):
   sentence = [s.lower() for s in SENTENCE_SPLIT_REGEX.split(sentence.strip()) if len(s.strip()) > 0]
   # remove the '.' from the end of the sentence
   if sentence[-1] != '.':
-    # print "Warning: sentence doesn't end with '.'; ends with: %s" % sentence[-1]                                                  
+    # print "Warning: sentence doesn't end with '.'; ends with: %s" % sentence[-1]
     return sentence
   return sentence[:-1]
 
@@ -35,12 +35,12 @@ def init_vocabulary(image_annotations, min_count=1):
       if word not in words_to_count:
         words_to_count[word] = 0
       words_to_count[word] += 1
-  # Sort words by count, then alphabetically                                                                                                                                                        
+  # Sort words by count, then alphabetically
   words_by_count = sorted(words_to_count.keys(), key=lambda w: (-words_to_count[w], w))
   print 'Initialized vocabulary with %d words; top 10 words:' % len(words_by_count)
   for word in words_by_count[:10]:
     print '\t%s (%d)' % (word, words_to_count[word])
-  # Add words to vocabulary                                                                                                                                                                         
+  # Add words to vocabulary
   vocabulary = {UNK_IDENTIFIER: 0}
   vocabulary_inverted = [UNK_IDENTIFIER]
   for index, word in enumerate(words_by_count):
@@ -67,11 +67,11 @@ def line_to_stream(sentence, vocabulary):
     word = word.strip()
     if word in vocabulary:
       stream.append(vocabulary[word])
-    else:  # unknown word; append UNK                                                                                                   
+    else:  # unknown word; append UNK
       stream.append(vocabulary[UNK_IDENTIFIER])
-  # increment the stream -- 0 will be the EOS character                                                                                 
-  stream = [s + 1 for s in stream]                                                                                                    
-  #stream = [s for s in stream]   # no need for EOS token in memory network                                                              
+  # increment the stream -- 0 will be the EOS character
+  stream = [s + 1 for s in stream]
+  #stream = [s for s in stream]   # no need for EOS token in memory network
   return stream
 
 
@@ -105,7 +105,9 @@ def generate_segment(path, split, data, vocab, max_words):
           out['input_sentence'] = [0] + stream + [-1] * pad
           out['cont_sentence'] = [0] + [1] * len(stream) + [0] * pad
           out['target_sentence'] = stream + [0] + [-1] * pad
-        segment[vid].append([start_time, end_time, out['input_sentence'], out['cont_sentence'],out['target_sentence']])
+        # Victor's project
+        out['raw_sentences'] = vinfo['sentences'][k]
+        segment[vid].append([start_time, end_time, out['input_sentence'], out['cont_sentence'],out['target_sentence'], out['raw_sentences']])
   return segment
 
 
