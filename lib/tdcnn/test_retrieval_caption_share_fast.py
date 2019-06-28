@@ -24,6 +24,8 @@ from scipy.spatial.distance import cosine
 from scipy.spatial.distance import cdist
 import pickle
 
+import h5py
+import json
 
 ### cosine similarity option 1
 def cos(v1, v2):
@@ -265,9 +267,23 @@ def apply_nms(all_wins, thresh):
     return nms_wins
 
 def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_per_image=100, thresh=0.05, vis=False):
-    # TODO: Victor's project
-    # Load MEE output and mapping
     num_videos = len(roidb)
+    # Victor's project
+    # Load MEE results in Charades-STA
+    with h5py.File('experiments/snapshot/mee_video-retrieval_charades-sta_test.h5', 'r') as fid:
+        mee_vid_indices_per_query = fid['vid_indices'][:]
+        assert mee_vid_indices_per_query.shape[1] == num_videos
+    with open('experiments/snapshot/mee_video-retrieval_charades-sta_mappings.json', 'r') as fid:
+        mee_mappings = json.load(fid)
+        mee_videoquery2ind = {
+            tuple(v): int(k)
+            for k, v in mee_mappings['ind2videoquery'].iteritems()
+        }
+        ind2vid = {
+            int(k): v
+            for k, v in mee_mappings['ind2vid'].iteritems()
+        }
+        assert len(ind2vid) == num_videos
 
     # timers
     _t = {'im_detect' : Timer(), 'misc' : Timer(), 'query': Timer()}
@@ -280,6 +296,7 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
     MAX_PROPOSALS = 100
     MAX_VIDEOS = 6
 
+    query_counter = 0
     for i in xrange(num_videos):
         # Victor's project
         # For each query in a given video, search over candidates videos
@@ -288,6 +305,9 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
         v_i = roidb[i]['vid']
         queries = roidb[i]['input_sentence']
         for j in xrange(len(queries)):
+            query_counter += 1
+            query_j = roidb[i]['raw_sentences'][j]
+            mee_j = mee_videoquery2ind[(v_i, query_j)]
             _t['query'].tic()
             q = queries[[j], :]
             scores = np.zeros(MAX_PROPOSALS * MAX_VIDEOS)
@@ -295,10 +315,9 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
             proposal_conf = np.zeros(MAX_PROPOSALS * MAX_VIDEOS)
 
             # Grab MEE results and loop over top-k videos
-            # TODO: Victor's project
-            # Replace this with MEE results
-            ind_mee = np.random.choice(num_videos, MAX_VIDEOS, False)
-            for k, v_j in enumerate(ind_mee):
+            ind_mee = mee_vid_indices_per_query[mee_j, :MAX_VIDEOS]
+            for k, v_j_ind in enumerate(ind_mee):
+                v_j_ind = video2ind[ind2vid[v_j_ind]]
                 # filter out any ground truth wins
                 if cfg.TEST.HAS_RPN:
                     box_proposals = None
@@ -308,10 +327,10 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
                     # detection on the *non*-ground-truth rois. We select those the rois
                     # that have the gt_classes field set to 0, which means there's no
                     # ground truth.
-                    box_proposals = roidb[v_j]['wins'][roidb[v_j]['gt_classes'] == 0]
+                    box_proposals = roidb[v_j_ind]['wins'][roidb[v_j_ind]['gt_classes'] == 0]
                     raise ValueError('Unexpected')
 
-                video = _get_video_blob(roidb[v_j], vocab)
+                video = _get_video_blob(roidb[v_j_ind], vocab)
 
                 _t['im_detect'].tic()
                 wins, fc6, proposal_scores = video_detect(net, video, box_proposals)
@@ -328,10 +347,10 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
                     sim[d] = score.squeeze()
                 scores[k*MAX_PROPOSALS:(k+1)*MAX_PROPOSALS] = sim[d]
 
-                stride = roidb[v_j]['stride']
-                start_frame = roidb[v_j]['start_frame']
-                end_frame = roidb[v_j]['end_frame']
-                FPS = roidb[v_j]['FPS']
+                stride = roidb[v_j_ind]['stride']
+                start_frame = roidb[v_j_ind]['start_frame']
+                end_frame = roidb[v_j_ind]['end_frame']
+                FPS = roidb[v_j_ind]['FPS']
 
                 left_frame = np.maximum(wins[:,1]*stride + start_frame, start_frame)/FPS
                 right_frame = np.minimum(wins[:,2]*stride + start_frame, end_frame)/FPS
@@ -340,7 +359,6 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
                 proposal_conf[k*MAX_PROPOSALS:(k+1)*MAX_PROPOSALS] = proposal_scores
                 _t['misc'].toc()
 
-            query_j = roidb[i]['raw_sentences'][j]
             res[(v_i, query_j)] = {
                 'proposals': proposals,
                 'proposal_conf': proposal_conf,
@@ -416,4 +434,5 @@ def test_net(net, roidb, lstm_net, retrieval_net, sim_pickle_path, vocab, max_pe
                       _t['misc'].average_time)
 
 
+    assert query_counter == len(mee_videoquery2ind)
     pickle.dump( res, open( sim_pickle_path, "wb" ) )
